@@ -1,0 +1,35 @@
+# Copy to terraform.tfvars and fill in. That file is gitignored.
+# Secrets below are sensitive: they end up in the local tfstate too.
+
+# Proxmox API token (Datacenter -> Permissions -> API Tokens).
+pm_api_token = "terraform@pve!terraform=<secret>"
+
+# GitHub PAT with read:packages scope for pulling images from GHCR.
+ghcr_pat = "<github-pat>"
+
+# INGInious secrets - keep identical to the laptop deployment so sessions
+# and API tokens stay valid after the migration (configuration.deploy.yaml).
+session_secret = "<64-hex>"
+api_jwt_secret = "<64-hex>"
+
+# Tag obrazow z GHCR (workflow docker-images publikuje latest + main-<sha>).
+image_tag = "latest"
+
+# Cloudflare tunnel token (Zero Trust -> Networks -> Tunnels -> kursy ->
+# `cloudflared service install`). Public hostname w dashboardzie:
+# kursy.dinocoders.pl -> HTTP -> localhost:8080
+# Puste = tunel nieinstalowany (stack dostepny tylko po IP kontenera).
+cloudflare_tunnel_token = ""
+
+# Optional overrides (defaults shown):
+# pm_node        = "proxmox"      # <- nazwa WEZLA PVE (hostname hosta)
+# ct_vmid        = 216
+# ct_hostname    = "kursy"
+# ct_bridge      = "vmbr0"
+# ct_storage     = "local-lvm"
+# ct_cores       = 4
+# ct_memory_mb   = 2048           # node ma malo RAM - nie podbijaj bez potrzeby
+# ct_swap_mb     = 2048
+# ct_disk_gb     = 16             # lvmthin: zwiekszaj spokojnie, thin allocation
+# web_bind_port  = 8080
+# public_domain  = "kursy.dinocoders.pl"

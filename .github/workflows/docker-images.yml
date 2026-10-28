@@ -1,0 +1,79 @@
+# Build and publish INGInious Docker images to GHCR (core services + grading
+# environments). The kursy.dinocoders.pl LXC (infra/proxmox) pulls these;
+# `make proxmox-redeploy TAG=main-<sha>` switches the running stack to a tag.
+# Grading env-* images are runtime-discovered by the docker label
+# org.inginious.grading.name - the registry path does not matter to the agent.
+name: docker-images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'inginious/**'
+      - 'base-containers/**'
+      - 'deploy/**'
+      - 'pyproject.toml'
+      - '.github/workflows/docker-images.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    name: build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Core services all share the `core` stage: one shared GHA cache scope.
+          - { image: core-backend,      context: .,                    dockerfile: deploy/Containerfile, target: backend,      cache: core }
+          - { image: core-frontend,     context: .,                    dockerfile: deploy/Containerfile, target: frontend,     cache: core }
+          - { image: core-agent_docker, context: .,                    dockerfile: deploy/Containerfile, target: agent_docker, cache: core }
+          - { image: core-agent_mcq,    context: .,                    dockerfile: deploy/Containerfile, target: agent_mcq,    cache: core }
+          - { image: core-webdav,       context: .,                    dockerfile: deploy/Containerfile, target: webdav,       cache: core }
+          # Grading environments; default + python3 share env-base layers.
+          - { image: env-base,          context: base-containers/base, dockerfile: Dockerfile,           target: env-base,     cache: env }
+          - { image: env-default,       context: base-containers/base, dockerfile: Dockerfile,           target: env-default,  cache: env }
+          - { image: env-python3,       context: base-containers/base, dockerfile: Dockerfile,           target: env-python3,  cache: env }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # setuptools_scm needs tags to compute the package version.
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/inginious/${{ matrix.image }}
+          tags: |
+            type=sha,prefix=main-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.cache }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache }}

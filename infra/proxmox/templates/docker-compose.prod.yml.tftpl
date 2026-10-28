@@ -1,0 +1,164 @@
+# kursy.dinocoders.pl - INGInious production stack (rendered by terraform).
+# Pull-only: images are built by .github/workflows/docker-images.yml and
+# pushed to GHCR. TLS terminates at the Cloudflare edge; caddy serves plain
+# HTTP on a loopback bind that the cloudflared tunnel targets.
+# Grading images (env-*) are discovered at runtime by the docker label
+# org.inginious.grading.name, not by their registry path.
+#
+# Data layout on the container (bind mounts, migrated from the laptop):
+#   /opt/kursy/db      - mongo WiredTiger data
+#   /opt/kursy/tasks   - course tasks
+
+name: kursy
+
+services:
+
+  env-base:
+    image: ${ghcr_registry}/inginious/env-base:${image_tag}
+    attach: false
+    command: /bin/true
+    restart: "no"
+
+  env-default:
+    image: ${ghcr_registry}/inginious/env-default:${image_tag}
+    attach: false
+    command: /bin/true
+    restart: "no"
+
+  env-python3:
+    image: ${ghcr_registry}/inginious/env-python3:${image_tag}
+    attach: false
+    command: /bin/true
+    restart: "no"
+
+  db:
+    image: mongo:6.0.2
+    restart: unless-stopped
+    volumes:
+      - /opt/kursy/db:/data/db
+      - /opt/kursy/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    environment:
+      MONGO_INITDB_DATABASE: "INGInious"
+
+      # MANDATORY ARGUMENT, INITIALISATION WILL FAIL IF NOT PROVIDED.
+      # Fresh-install fallback only (runs on an empty /opt/kursy/db); the
+      # migrated database carries its own users. The default password is
+      # "superadmin" (documented upstream) - reset it before going public.
+      # $ are doubled for compose variable expansion, doubled again for
+      # terraform templatefile.
+      INGINIOUS_SUPERADMIN_PASSWORD: '$$$$argon2id$$v=19$$m=65536,t=3,p=1$$QVNVUEVSU0VDVVJFU0FMVA$$NpeSDEsx+FwrIS277T9o/Q4z4Ypicibs3LiLZrftXsBUmBxFnK8FKa45w5q85ewM+dOlzZPMFdAmxpmDVAmLlQ'
+
+      # Username. Defaults to "superadmin" if not provided.
+      INGINIOUS_SUPERADMIN_USERNAME: "superadmin"
+
+      # Real name. Defaults to "INGInious superadmin" if not provided.
+      INGINIOUS_SUPERADMIN_REALNAME: "INGInious superadmin"
+
+      # Email. Defaults to "superadmin@inginious.org" if not provided.
+      INGINIOUS_SUPERADMIN_EMAIL: "superadmin@inginious.org"
+    networks:
+      - inginious
+
+  backend:
+    image: ${ghcr_registry}/inginious/core-backend:${image_tag}
+    restart: unless-stopped
+    environment:
+      AGENT: "tcp://0.0.0.0:2001"
+      CLIENT: "tcp://0.0.0.0:2000"
+    networks:
+      - inginious
+
+  agent-docker:
+    image: ${ghcr_registry}/inginious/core-agent_docker:${image_tag}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+      env-base:
+        condition: service_completed_successfully
+      env-default:
+        condition: service_completed_successfully
+      env-python3:
+        condition: service_completed_successfully
+    environment:
+      BACKEND: "tcp://backend:2001"
+    security_opt:
+      - "label=disable"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # See https://github.com/INGInious/INGInious/issues/352
+      - /opt/kursy/tasks:/inginious/tasks
+      # See https://github.com/INGInious/INGInious/issues/799
+      - /tmp/agent_data:/tmp/agent_data
+    networks:
+      - inginious
+
+  agent-mcq:
+    image: ${ghcr_registry}/inginious/core-agent_mcq:${image_tag}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      BACKEND: "tcp://backend:2001"
+    volumes:
+      # See https://github.com/INGInious/INGInious/issues/352
+      - /opt/kursy/tasks:/inginious/tasks
+      # See https://github.com/INGInious/INGInious/issues/799
+      - /tmp/agent_data:/tmp/agent_data
+    networks:
+      - inginious
+
+  frontend:
+    image: ${ghcr_registry}/inginious/core-frontend:${image_tag}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_started
+      backend:
+        condition: service_started
+    environment:
+      - INGINIOUS_WEBAPP_HOST=0.0.0.0
+    volumes:
+      - /opt/kursy/configuration.yaml:/inginious/configuration.yaml:ro
+      - /opt/kursy/tasks:/inginious/tasks
+    networks:
+      - inginious
+
+  webdav:
+    image: ${ghcr_registry}/inginious/core-webdav:${image_tag}
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - INGINIOUS_WEBDAV_HOST=0.0.0.0
+    volumes:
+      - /opt/kursy/configuration.yaml:/inginious/configuration.yaml:ro
+      - /opt/kursy/tasks:/inginious/tasks
+    networks:
+      - inginious
+
+  caddy:
+    image: docker.io/library/caddy:2.11.4-alpine
+    restart: unless-stopped
+    volumes:
+      - /opt/kursy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - frontend
+      - webdav
+    ports:
+      # Loopback only - the cloudflared tunnel forwards the public hostname
+      # here; TLS terminates at the Cloudflare edge.
+      - "127.0.0.1:${web_bind_port}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      start_interval: 5s
+    networks:
+      - inginious
+
+networks:
+  inginious:

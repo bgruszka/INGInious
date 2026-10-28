@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# kursy container bootstrap (terraform remote-exec target).
+# Rendered by terraform: ghcr_user is injected. Idempotent - safe to re-run
+# on every apply/redeploy. The stack is only started after the data migration
+# is done (marker file /opt/kursy/.data-loaded - see README.md).
+set -euo pipefail
+
+log() { echo "[kursy-bootstrap] $*"; }
+
+# --- Base packages (template ships without curl) ------------------------------
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq curl ca-certificates >/dev/null
+
+# --- Docker ------------------------------------------------------------------
+if ! command -v docker >/dev/null 2>&1; then
+  log "installing docker"
+  curl -fsSL https://get.docker.com | sh
+fi
+
+# --- cloudflared (Cloudflare Tunnel) -------------------------------------------
+if ! command -v cloudflared >/dev/null 2>&1; then
+  log "installing cloudflared"
+  curl -fsSL \
+    https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+    -o /tmp/cloudflared.deb
+  dpkg -i /tmp/cloudflared.deb >/dev/null
+  rm -f /tmp/cloudflared.deb
+fi
+
+# --- GHCR login ----------------------------------------------------------------
+docker login ghcr.io -u "${ghcr_user}" --password-stdin < /opt/kursy/.ghcr-pat
+
+# --- Stack -----------------------------------------------------------------------
+cd /opt/kursy
+log "pulling images"
+docker compose pull
+
+if [ -f /opt/kursy/.data-loaded ]; then
+  log "starting stack"
+  docker compose up -d --remove-orphans
+else
+  log "data not migrated yet - skipping stack start (see /opt/kursy/README note)"
+fi
+
+# --- Image retention -------------------------------------------------------------
+# Every redeploy pulls a new main-<sha> set; without this the old tags pile up
+# until the container disk fills and the next pull dies mid-extraction. Runs
+# after up -d, so the only unused images are the previous deploy's - the
+# running stack is never touched. In-use images are always skipped by prune.
+log "pruning unused images"
+docker image prune -a -f >/dev/null
+
+# --- Tunnel service ---------------------------------------------------------------
+systemctl daemon-reload
+if [ -f /etc/systemd/system/kursy-cloudflared.service ]; then
+  systemctl enable --now kursy-cloudflared.service
+fi
+
+log "done"

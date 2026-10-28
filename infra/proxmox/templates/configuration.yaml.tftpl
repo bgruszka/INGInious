@@ -1,0 +1,21 @@
+# INGInious configuration for kursy.dinocoders.pl (rendered by terraform).
+# Secrets come from sensitive tfvars - keep them stable across applies so
+# logins and API tokens survive redeploys.
+
+backend: tcp://backend:2000
+backup_directory: /inginious/backups
+local-config: {}
+mongo_opt:
+    database: INGInious
+    host: db
+plugins: []
+session_parameters:
+    secret_key: ${session_secret}
+    secure: true
+    timeout: 86400
+superadmins:
+- superadmin
+tasks_directory: /inginious/tasks
+use_minified_js: true
+webdav_host: https://${public_domain}/dav
+api_jwt_secret: ${api_jwt_secret}

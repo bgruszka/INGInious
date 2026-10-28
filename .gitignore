@@ -29,3 +29,13 @@ db
 # Build files
 build/lib
 build/scripts-*
+
+# Local dev compose override + generated data dirs (laptop deployment)
+docker-compose.override.yml
+tasks
+backups
+
+# Terraform (stan zawiera sekrety)
+infra/proxmox/.terraform/
+infra/proxmox/*.tfstate*
+infra/proxmox/terraform.tfvars

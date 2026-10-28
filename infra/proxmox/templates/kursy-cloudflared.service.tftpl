@@ -1,0 +1,21 @@
+# kursy cloudflared tunnel (rendered target:
+# /etc/systemd/system/kursy-cloudflared.service).
+#
+# Remotely-managed tunnel: the token carries the tunnel ID and the ingress
+# rules are configured in the Cloudflare Zero Trust dashboard (Public
+# Hostname: kursy.dinocoders.pl -> http://localhost:8080). TLS terminates at
+# the Cloudflare edge; caddy stays plain HTTP on the loopback port.
+
+[Unit]
+Description=kursy cloudflared tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared tunnel run --token ${cloudflare_tunnel_token}
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
