@@ -123,6 +123,11 @@ http://localhost:8080.
 
 ## Troubleshooting
 
+- **Thin pool `local-lvm` na nodzie jest mały (~66 GB) i współdzielony z 10+
+  gośćmi** — obrazy INGInious zajmują ~5-6 GB realnego miejsca. Bootstrap
+  capuje logi kontenerów (daemon.json) i prunuje stare obrazy; nie podbijaj
+  `ct_disk_gb` bez sprawdzenia `avail` w API storage (przy 0 wolnego inne
+  goście dostają I/O errors). Rozbudowa puli wymaga dostępu do hosta PVE.
 - **HTTP 595 / "Connection refused" przy pobieraniu szablonu Debiana** —
   nie dotyczy: `lxc_template_volid` wskazuje szablon już obecny na datastore.
 - **docker compose pull fails 401** — PAT w `.ghcr-pat` bez `read:packages`.

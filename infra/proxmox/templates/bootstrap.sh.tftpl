@@ -13,9 +13,18 @@ apt-get update -qq
 apt-get install -y -qq curl ca-certificates >/dev/null
 
 # --- Docker ------------------------------------------------------------------
+# Tiny rootfs: cap container json logs or they fill the disk unbounded.
+if [ ! -f /etc/docker/daemon.json ]; then
+  mkdir -p /etc/docker
+  cat > /etc/docker/daemon.json <<'JSON'
+{ "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+JSON
+fi
 if ! command -v docker >/dev/null 2>&1; then
   log "installing docker"
   curl -fsSL https://get.docker.com | sh
+elif systemctl is-active --quiet docker; then
+  systemctl restart docker
 fi
 
 # --- cloudflared (Cloudflare Tunnel) -------------------------------------------
