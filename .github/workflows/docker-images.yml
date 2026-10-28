@@ -38,9 +38,10 @@ jobs:
           - { image: core-agent_mcq,    context: .,                    dockerfile: deploy/Containerfile, target: agent_mcq,    cache: core }
           - { image: core-webdav,       context: .,                    dockerfile: deploy/Containerfile, target: webdav,       cache: core }
           # Grading environments; default + python3 share env-base layers.
-          - { image: env-base,          context: base-containers/base, dockerfile: Dockerfile,           target: env-base,     cache: env }
-          - { image: env-default,       context: base-containers/base, dockerfile: Dockerfile,           target: env-default,  cache: env }
-          - { image: env-python3,       context: base-containers/base, dockerfile: Dockerfile,           target: env-python3,  cache: env }
+          # dockerfile path is resolved against the workspace root, not the context.
+          - { image: env-base,          context: base-containers/base, dockerfile: base-containers/base/Dockerfile, target: env-base,    cache: env }
+          - { image: env-default,       context: base-containers/base, dockerfile: base-containers/base/Dockerfile, target: env-default, cache: env }
+          - { image: env-python3,       context: base-containers/base, dockerfile: base-containers/base/Dockerfile, target: env-python3, cache: env }
     steps:
       - uses: actions/checkout@v4
         with:
