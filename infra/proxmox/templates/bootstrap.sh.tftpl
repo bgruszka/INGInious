@@ -48,17 +48,17 @@ docker compose pull
 if [ -f /opt/kursy/.data-loaded ]; then
   log "starting stack"
   docker compose up -d --remove-orphans
-else
-  log "data not migrated yet - skipping stack start (see /opt/kursy/README note)"
-fi
 
-# --- Image retention -------------------------------------------------------------
-# Every redeploy pulls a new main-<sha> set; without this the old tags pile up
-# until the container disk fills and the next pull dies mid-extraction. Runs
-# after up -d, so the only unused images are the previous deploy's - the
-# running stack is never touched. In-use images are always skipped by prune.
-log "pruning unused images"
-docker image prune -a -f >/dev/null
+  # --- Image retention --------------------------------------------------------
+  # Every redeploy pulls a new main-<sha> set; without this the old tags pile
+  # up until the container disk fills. Runs ONLY after up -d: prune -a would
+  # otherwise wipe the freshly pulled images while nothing is running yet
+  # (pre-data-migration applies). In-use images are always skipped by prune.
+  log "pruning unused images"
+  docker image prune -a -f >/dev/null
+else
+  log "data not migrated yet - skipping stack start and prune (see README.md)"
+fi
 
 # --- Tunnel service ---------------------------------------------------------------
 systemctl daemon-reload
