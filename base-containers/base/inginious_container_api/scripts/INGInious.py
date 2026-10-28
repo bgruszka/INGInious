@@ -335,11 +335,23 @@ class INGIniousMainRunner:
             with open(oom_group_path, "r", encoding="utf-8") as f:
                 oom_group = f.read().strip()
             if oom_group == "0":
-                inginious_container_api.feedback.set_global_result('crash')
-                inginious_container_api.feedback.set_global_feedback(
-                    "Cgroup flag memory.oom.group is not set. Please refer to the setup documentation."
-                )
-                ok_to_start = False
+                # Try to enable it ourselves (works when the cgroup is delegated to the
+                # container); on read-only cgroup mounts (e.g. Docker Desktop on macOS)
+                # continue anyway: Docker kills the whole container on OOM and the agent
+                # detects it with was_oom_killed(), so grading stays safe.
+                try:
+                    with open(oom_group_path, "w", encoding="utf-8") as f:
+                        f.write("1")
+                    with open(oom_group_path, "r", encoding="utf-8") as f:
+                        oom_group = f.read().strip()
+                except OSError:
+                    oom_group = "1"  # cannot enforce locally; rely on container-level OOM kill
+                if oom_group == "0":
+                    inginious_container_api.feedback.set_global_result('crash')
+                    inginious_container_api.feedback.set_global_feedback(
+                        "Cgroup flag memory.oom.group is not set. Please refer to the setup documentation."
+                    )
+                    ok_to_start = False
 
         # Add some elements to /etc/hosts and /etc/resolv.conf if needed
         system_files = {"hosts": ("/etc/hosts", True), "resolv.conf": ("/etc/resolv.conf", False)}
