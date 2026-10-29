@@ -8,8 +8,10 @@ dayveer `infra/proxmox`).
 
 ```
 Internet ──https──> serveo.net (TLS termination, Let's Encrypt za domenę)
-                      |  autossh reverse tunnel (systemd serveo.service)
+                      |  WireGuard tunnel (wg-quick@serveo, endpoint
+                      |  wg.serveo.net:51820)
                       |  wymaga: Route53 CNAME kursy.dinocoders.pl -> serveo.net
+                      |  + domena zarejestrowana w dashboardzie serveo
                       v
 LXC Debian 12 (unprivileged, nesting) na pve / local-lvm / vmbr0 / DHCP
   Docker Compose (/opt/kursy):
@@ -21,8 +23,8 @@ LXC Debian 12 (unprivileged, nesting) na pve / local-lvm / vmbr0 / DHCP
     agent-mcq     grading quizów
     frontend  webapp
     webdav    /dav/*
-    caddy     plain HTTP na 127.0.0.1:8080 (tunel celuje tutaj)
-  systemd serveo.service (wzorzec: minecraft.dinocoders.pl)
+    caddy     plain HTTP na :8080 (serveo przekazuje tutaj przez WG)
+  wg-quick@serveo (wzorzec: minecraft.dinocoders.pl)
 ```
 
 Obrazy buduje GitHub Actions (`.github/workflows/docker-images.yml`) i pushuje
@@ -43,13 +45,27 @@ do `ghcr.io/bgruszka/inginious/*` (tagi `latest` + `main-<sha>`).
 
 1. **Proxmox API token** — ten sam co w homelab/czytojebnie.
 2. **GitHub PAT** z `read:packages` — jak w czytojebnie.
-3. **DNS**: w strefie `dinocoders.pl` (Route53, konto AWS posiadające strefę)
-   dodaj rekord: `kursy` `CNAME` → `serveo.net` (TTL 300). Bez tego serveo
-   odrzuca bind tunelu (`remote port forwarding failed`); autossh ponawia
-   co 10 s, więc rekord podłapie się automatycznie po dodaniu.
-4. **Cloudflare (opcjonalny upgrade)**: przeniesienie strefy na CF + tunel
+3. **DNS**: w strefie `dinocoders.pl` (Route53) rekord `kursy` `CNAME` →
+   `serveo.net` (TTL 300).
+4. **Serveo dashboard**: zarejestruj `kursy.dinocoders.pl`, połączenie
+   **WireGuard**, klucz publiczny z kontenera (`ssh root@<ip> 'cat
+   /etc/wireguard/serveo.pub'`), local port `8080`. Konfigurację peera z
+   panelu (Address/PublicKey/AllowedIPs/Endpoint) wpisz do
+   `infra/proxmox/terraform.tfvars` (zmienne `serveo_*`).
+5. **TUN na hoście PVE (jednorazowo, root na hostie)** — kontener
+   nieuprzywilejowany, PVE nie ma flagi `tun` w `features`:
+   ```
+   cat >> /etc/pve/lxc/216.conf <<'EOF'
+   lxc.cgroup2.devices.allow: c 10:200 rwm
+   lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+   EOF
+   pct reboot 216
+   ```
+   Bez tego `wg-quick@serveo` nie wstanie; unit jest enabled i podłączy się
+   przy pierwszym reboocie po zmianie.
+6. **Cloudflare (opcjonalny upgrade)**: przeniesienie strefy na CF + tunel
    zamiast serveo - patrz historia w git; template `kursy-cloudflared` został.
-5. Lokalnie: `terraform` (>= 1.6).
+7. Lokalnie: `terraform` (>= 1.6).
 
 ## Deploy
 

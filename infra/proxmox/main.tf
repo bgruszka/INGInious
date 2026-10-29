@@ -215,16 +215,20 @@ resource "null_resource" "tunnel" {
 }
 
 # Public exposure via serveo.net (same pattern as minecraft.dinocoders.pl):
-# Route53 CNAME kursy.dinocoders.pl -> serveo.net + autossh reverse forward
-# to caddy on localhost:8080. TLS terminates at the serveo edge (Let's
-# Encrypt for the custom domain). The cloudflared resource above stays as an
-# optional future upgrade path.
+# Route53 CNAME kursy.dinocoders.pl -> serveo.net, hostname registered in the
+# serveo dashboard against the WireGuard public key generated below, and a
+# WireGuard tunnel to serveo. TLS terminates at the serveo edge. The
+# cloudflared resource above stays as an optional future upgrade path.
 resource "null_resource" "serveo_tunnel" {
   count = var.serveo_enabled ? 1 : 0
 
   triggers = {
-    container_id    = proxmox_virtual_environment_container.kursy.id
-    serveo_unit_sha = filemd5("${path.module}/templates/kursy-serveo.service.tftpl")
+    container_id           = proxmox_virtual_environment_container.kursy.id
+    wg_conf_sha            = filemd5("${path.module}/templates/kursy-serveo.wg.conf.tftpl")
+    serveo_address         = var.serveo_address
+    serveo_peer_public_key = var.serveo_peer_public_key
+    serveo_allowed_ips     = var.serveo_allowed_ips
+    serveo_endpoint        = var.serveo_endpoint
   }
 
   depends_on = [null_resource.bootstrap]
@@ -239,20 +243,33 @@ resource "null_resource" "serveo_tunnel" {
   provisioner "remote-exec" {
     inline = [
       "export DEBIAN_FRONTEND=noninteractive",
-      "apt-get install -y -qq autossh >/dev/null",
-      "[ -f /root/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -N '' -f /root/.ssh/id_ed25519 -q",
+      "apt-get install -y -qq wireguard-tools >/dev/null",
+      "[ -f /etc/wireguard/serveo.key ] || (umask 077 && wg genkey > /etc/wireguard/serveo.key)",
+      "[ -f /etc/wireguard/serveo.pub ] || wg pubkey < /etc/wireguard/serveo.key > /etc/wireguard/serveo.pub",
     ]
   }
 
   provisioner "file" {
-    content     = templatefile("${path.module}/templates/kursy-serveo.service.tftpl", {})
-    destination = "/etc/systemd/system/serveo.service"
+    content = templatefile(
+      "${path.module}/templates/kursy-serveo.wg.conf.tftpl",
+      {
+        ct_vmid                 = var.ct_vmid
+        serveo_address          = var.serveo_address
+        serveo_peer_public_key  = var.serveo_peer_public_key
+        serveo_allowed_ips      = var.serveo_allowed_ips
+        serveo_endpoint         = var.serveo_endpoint
+      }
+    )
+    destination = "/etc/wireguard/serveo.conf"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "systemctl daemon-reload",
-      "systemctl enable --now serveo.service",
+      "chmod 600 /etc/wireguard/serveo.conf",
+      "systemctl enable wg-quick@serveo",
+      # Fails until TUN is enabled on the host (see template header); the
+      # enabled unit connects on the first boot after that change.
+      "systemctl start wg-quick@serveo || echo '[serveo] TUN not enabled yet on the PVE host - will connect after /etc/pve/lxc/${var.ct_vmid}.conf change + reboot'",
     ]
   }
 }

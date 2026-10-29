@@ -158,7 +158,31 @@ variable "cloudflare_tunnel_token" {
 
 # --- Serveo (current public exposure, pattern: minecraft.dinocoders.pl) -------
 variable "serveo_enabled" {
-  description = "Install the autossh serveo tunnel (requires Route53 CNAME kursy.dinocoders.pl -> serveo.net)."
+  description = "Install the serveo WireGuard tunnel (requires Route53 CNAME kursy.dinocoders.pl -> serveo.net, hostname registered in the serveo dashboard against /etc/wireguard/serveo.pub, and TUN enabled on the PVE host for this CT)."
   type        = bool
   default     = true
+}
+
+variable "serveo_address" {
+  description = "Peer address assigned by the serveo dashboard."
+  type        = string
+  default     = "fd1d:84e3:8aca:1:2c52:af06:9a8d:2d3f/128"
+}
+
+variable "serveo_peer_public_key" {
+  description = "Public key of the serveo WireGuard endpoint."
+  type        = string
+  default     = "dnu982a30YcXBh3Zy4PlPM6nbfavgfOyxx629AO7VEU="
+}
+
+variable "serveo_allowed_ips" {
+  description = "Routes reachable through the serveo peer."
+  type        = string
+  default     = "fd1d:84e3:8aca::/48"
+}
+
+variable "serveo_endpoint" {
+  description = "serveo WireGuard endpoint."
+  type        = string
+  default     = "wg.serveo.net:51820"
 }

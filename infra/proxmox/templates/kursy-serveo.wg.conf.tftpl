@@ -1,0 +1,29 @@
+# serveo WireGuard peer (rendered target: /etc/wireguard/serveo.conf).
+#
+# Exposure pattern of minecraft.dinocoders.pl: Route53 CNAME
+# kursy.dinocoders.pl -> serveo.net, the public hostname registered in the
+# serveo dashboard against the public key /etc/wireguard/serveo.pub
+# (generated on the CT), and this tunnel to the serveo endpoint. Serveo
+# terminates TLS and forwards to the local bind port (8080 -> caddy).
+#
+# The private key is generated on the CT and never rendered into config;
+# PostUp injects it after wg-quick applies the peer config.
+#
+# REQUIRES TUN on the PVE host once (unprivileged CT, no tun feature flag):
+#   cat >> /etc/pve/lxc/${ct_vmid}.conf <<'EOF'
+#   lxc.cgroup2.devices.allow: c 10:200 rwm
+#   lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+#   EOF
+#   pct reboot ${ct_vmid}
+# Until then `systemctl start wg-quick@serveo` fails; the unit is enabled and
+# connects on the first boot after the host-side change.
+
+[Interface]
+PostUp = wg set %i private-key /etc/wireguard/serveo.key
+Address = ${serveo_address}
+
+[Peer]
+PublicKey = ${serveo_peer_public_key}
+AllowedIPs = ${serveo_allowed_ips}
+Endpoint = ${serveo_endpoint}
+PersistentKeepalive = 25

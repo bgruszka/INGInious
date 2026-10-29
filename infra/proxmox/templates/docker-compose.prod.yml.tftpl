@@ -147,9 +147,10 @@ services:
       - frontend
       - webdav
     ports:
-      # Loopback only - the cloudflared tunnel forwards the public hostname
-      # here; TLS terminates at the Cloudflare edge.
-      - "127.0.0.1:${web_bind_port}:8080"
+      # Serveo forwards the public hostname over the WireGuard tunnel to this
+      # port on the CT (TLS terminates at the serveo edge), so it must listen
+      # on the CT interfaces, not just loopback.
+      - "${web_bind_port}:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
       interval: 1m30s
