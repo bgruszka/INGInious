@@ -213,3 +213,46 @@ resource "null_resource" "tunnel" {
     ]
   }
 }
+
+# Public exposure via serveo.net (same pattern as minecraft.dinocoders.pl):
+# Route53 CNAME kursy.dinocoders.pl -> serveo.net + autossh reverse forward
+# to caddy on localhost:8080. TLS terminates at the serveo edge (Let's
+# Encrypt for the custom domain). The cloudflared resource above stays as an
+# optional future upgrade path.
+resource "null_resource" "serveo_tunnel" {
+  count = var.serveo_enabled ? 1 : 0
+
+  triggers = {
+    container_id    = proxmox_virtual_environment_container.kursy.id
+    serveo_unit_sha = filemd5("${path.module}/templates/kursy-serveo.service.tftpl")
+  }
+
+  depends_on = [null_resource.bootstrap]
+
+  connection {
+    type        = "ssh"
+    host        = proxmox_virtual_environment_container.kursy.ipv4["eth0"]
+    user        = "root"
+    private_key = file(pathexpand(var.ssh_private_key_path))
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "export DEBIAN_FRONTEND=noninteractive",
+      "apt-get install -y -qq autossh >/dev/null",
+      "[ -f /root/.ssh/id_ed25519 ] || ssh-keygen -t ed25519 -N '' -f /root/.ssh/id_ed25519 -q",
+    ]
+  }
+
+  provisioner "file" {
+    content     = templatefile("${path.module}/templates/kursy-serveo.service.tftpl", {})
+    destination = "/etc/systemd/system/serveo.service"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "systemctl daemon-reload",
+      "systemctl enable --now serveo.service",
+    ]
+  }
+}

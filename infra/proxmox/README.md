@@ -7,8 +7,9 @@ dayveer `infra/proxmox`).
 ## Architektura
 
 ```
-Internet ──https──> Cloudflare (TLS termination)
-                      |  cloudflared tunnel (systemd, token remotely-managed)
+Internet ──https──> serveo.net (TLS termination, Let's Encrypt za domenę)
+                      |  autossh reverse tunnel (systemd serveo.service)
+                      |  wymaga: Route53 CNAME kursy.dinocoders.pl -> serveo.net
                       v
 LXC Debian 12 (unprivileged, nesting) na pve / local-lvm / vmbr0 / DHCP
   Docker Compose (/opt/kursy):
@@ -21,7 +22,7 @@ LXC Debian 12 (unprivileged, nesting) na pve / local-lvm / vmbr0 / DHCP
     frontend  webapp
     webdav    /dav/*
     caddy     plain HTTP na 127.0.0.1:8080 (tunel celuje tutaj)
-  systemd kursy-cloudflared.service
+  systemd serveo.service (wzorzec: minecraft.dinocoders.pl)
 ```
 
 Obrazy buduje GitHub Actions (`.github/workflows/docker-images.yml`) i pushuje
@@ -42,19 +43,13 @@ do `ghcr.io/bgruszka/inginious/*` (tagi `latest` + `main-<sha>`).
 
 1. **Proxmox API token** — ten sam co w homelab/czytojebnie.
 2. **GitHub PAT** z `read:packages` — jak w czytojebnie.
-3. **Cloudflare**: strefa zawierająca `kursy.dinocoders.pl` musi być na
-   koncie Cloudflare. **Uwaga: `dinocoders.pl` jest teraz na AWS Route53** —
-   żeby użyć tunneli, przenieś strefę do Cloudflare (darmowe):
-   a. Zero Trust → Networks → Tunnels → Create tunnel (nazwa `kursy`),
-      skopiuj token z instrukcji `cloudflared service install` (woff! ...)
-      — ciąg `eyJ...`.
-   b. Dodaj w tunelu Public Hostname: `kursy.dinocoders.pl` →
-      `HTTP → localhost:8080`.
-   c. Cloudflare → Add site → `dinocoders.pl` → przepisz rekordy z Route53
-      (A `@` → 54.77.96.254, MX SES `inbound-smtp.eu-west-1.amazonaws.com`,
-      itd.), potem w Route53/registrarze podmień NS na przyznane przez
-      Cloudflare. DNS propaguje się od razu do CF edge.
-4. Lokalnie: `terraform` (>= 1.6).
+3. **DNS**: w strefie `dinocoders.pl` (Route53, konto AWS posiadające strefę)
+   dodaj rekord: `kursy` `CNAME` → `serveo.net` (TTL 300). Bez tego serveo
+   odrzuca bind tunelu (`remote port forwarding failed`); autossh ponawia
+   co 10 s, więc rekord podłapie się automatycznie po dodaniu.
+4. **Cloudflare (opcjonalny upgrade)**: przeniesienie strefy na CF + tunel
+   zamiast serveo - patrz historia w git; template `kursy-cloudflared` został.
+5. Lokalnie: `terraform` (>= 1.6).
 
 ## Deploy
 

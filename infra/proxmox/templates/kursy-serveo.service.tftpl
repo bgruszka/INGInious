@@ -1,0 +1,23 @@
+# kursy serveo tunnel (rendered target: /etc/systemd/system/serveo.service).
+#
+# Same exposure pattern as minecraft.dinocoders.pl: Route53 CNAME
+# kursy.dinocoders.pl -> serveo.net, autossh keeps a reverse forward
+# kursy.dinocoders.pl:80 -> localhost:8080 (caddy, plain HTTP). Serveo
+# terminates TLS at their edge (Let's Encrypt for the custom domain).
+# ExitOnForwardFailure: serveo rejects the -R bind until the DNS record
+# exists - with this flag autossh retries every RestartSec and picks the
+# record up as soon as it is added.
+
+[Unit]
+Description=serveo.net tunnel (kursy.dinocoders.pl)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/autossh -M 0 -N -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -R kursy.dinocoders.pl:80:localhost:8080 serveo.net
+Restart=always
+RestartSec=10s
+Environment=AUTOSSH_GATETIME=0
+
+[Install]
+WantedBy=multi-user.target

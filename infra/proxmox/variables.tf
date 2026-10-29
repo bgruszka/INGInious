@@ -54,9 +54,9 @@ variable "ct_storage" {
 }
 
 variable "ct_cores" {
-  description = "Allocated CPU cores."
+  description = "Allocated CPU cores (the node itself has 2 physical cores)."
   type        = number
-  default     = 4
+  default     = 2
 }
 
 variable "ct_memory_mb" {
@@ -154,4 +154,11 @@ variable "cloudflare_tunnel_token" {
   type        = string
   sensitive   = true
   default     = ""
+}
+
+# --- Serveo (current public exposure, pattern: minecraft.dinocoders.pl) -------
+variable "serveo_enabled" {
+  description = "Install the autossh serveo tunnel (requires Route53 CNAME kursy.dinocoders.pl -> serveo.net)."
+  type        = bool
+  default     = true
 }
