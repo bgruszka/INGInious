@@ -17,7 +17,9 @@ proxmox-apply: ## Provision CT + bootstrap stack (starts only after data migrati
 	cd $(PROXMOX_TF_DIR) && terraform apply
 
 proxmox-redeploy: ## Redeploy app images: make proxmox-redeploy TAG=main-abcd123
-	cd $(PROXMOX_TF_DIR) && terraform apply -auto-approve -var=image_tag=$(TAG)
+	# -replace forces the bootstrap (pull + up) even when the tag did not
+	# change (e.g. TAG=latest re-pushed with new image content).
+	cd $(PROXMOX_TF_DIR) && terraform apply -auto-approve -replace="null_resource.bootstrap" -var=image_tag=$(TAG)
 
 proxmox-status: ## Stack status on the container
 	IP=$$(cd $(PROXMOX_TF_DIR) && terraform output -raw ct_ip) && \
