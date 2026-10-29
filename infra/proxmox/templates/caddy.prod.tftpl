@@ -1,7 +1,9 @@
 # Production entry point (rendered by terraform): plain HTTP behind the
-# Cloudflare tunnel. The tunnel targets http://localhost:${web_bind_port} on
-# the container; TLS terminates at the Cloudflare edge.
+# serveo WireGuard tunnel. TLS terminates at the serveo edge, which sets
+# X-Forwarded-Proto - used here to force-redirect plain HTTP to HTTPS.
 :${web_bind_port} {
+	@notsecure not header X-Forwarded-Proto https
+	redir @notsecure https://{host}{uri} 308
 	header -Server
 	reverse_proxy frontend:8000
 	handle /dav/* {
