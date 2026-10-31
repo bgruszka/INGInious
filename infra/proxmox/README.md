@@ -65,7 +65,14 @@ do `ghcr.io/bgruszka/inginious/*` (tagi `latest` + `main-<sha>`).
    przy pierwszym reboocie po zmianie.
 6. **Cloudflare (opcjonalny upgrade)**: przeniesienie strefy na CF + tunel
    zamiast serveo - patrz historia w git; template `kursy-cloudflared` został.
-7. Lokalnie: `terraform` (>= 1.6).
+7. **Brevo (maile aktywacyjne/reset hasła)** — to samo konto co dayveer i
+   czytojebnie (`smtp-relay.brevo.com:587`, STARTTLS). Nadawca
+   `no-reply@dinocoders.pl` wymaga **uwierzytelnienia domeny** `dinocoders.pl`
+   w panelu Brevo (Senders, Domains & Dedicated IPs → Domains): dodaj domenę,
+   rekordy DKIM/SPF dodaj w Route 53, kliknij Verify. Bez tego Brevo odrzuca
+   wiadomości i rejestracja kończy się „Something went wrong while sending you
+   activation email".
+8. Lokalnie: `terraform` (>= 1.6).
 
 ## Deploy
 

@@ -136,6 +136,27 @@ variable "api_jwt_secret" {
   sensitive   = true
 }
 
+# --- Brevo transactional SMTP (activation/password mails) ---------------------
+# Same Brevo account as dayveer and czytojebnie. The sender domain
+# (dinocoders.pl) must be authenticated in the Brevo dashboard
+# (DKIM/SPF records in Route 53) or Brevo rejects the messages.
+variable "brevo_smtp_user" {
+  description = "Brevo SMTP username (smtp-relay.brevo.com)."
+  type        = string
+}
+
+variable "brevo_smtp_password" {
+  description = "Brevo SMTP key."
+  type        = string
+  sensitive   = true
+}
+
+variable "smtp_from" {
+  description = "Verified sender address, e.g. no-reply@dinocoders.pl."
+  type        = string
+  default     = "no-reply@dinocoders.pl"
+}
+
 variable "public_domain" {
   description = "Public hostname served through the Cloudflare tunnel."
   type        = string

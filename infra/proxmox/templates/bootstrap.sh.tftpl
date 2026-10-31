@@ -49,6 +49,11 @@ if [ -f /opt/kursy/.data-loaded ]; then
   log "starting stack"
   docker compose up -d --remove-orphans
 
+  # configuration.yaml is a bind mount: compose does not recreate the containers
+  # when only the file content changes, so restart the services that read it.
+  log "restarting config-consuming services"
+  docker compose restart frontend webdav
+
   # --- Image retention --------------------------------------------------------
   # Every redeploy pulls a new main-<sha> set; without this the old tags pile
   # up until the container disk fills. Runs ONLY after up -d: prune -a would

@@ -126,9 +126,12 @@ resource "null_resource" "bootstrap" {
     content = templatefile(
       "${path.module}/templates/configuration.yaml.tftpl",
       {
-        session_secret = var.session_secret
-        api_jwt_secret = var.api_jwt_secret
-        public_domain  = var.public_domain
+        session_secret      = var.session_secret
+        api_jwt_secret      = var.api_jwt_secret
+        public_domain       = var.public_domain
+        brevo_smtp_user     = var.brevo_smtp_user
+        brevo_smtp_password = var.brevo_smtp_password
+        smtp_from           = var.smtp_from
       }
     )
     destination = "/opt/kursy/configuration.yaml"
@@ -253,11 +256,11 @@ resource "null_resource" "serveo_tunnel" {
     content = templatefile(
       "${path.module}/templates/kursy-serveo.wg.conf.tftpl",
       {
-        ct_vmid                 = var.ct_vmid
-        serveo_address          = var.serveo_address
-        serveo_peer_public_key  = var.serveo_peer_public_key
-        serveo_allowed_ips      = var.serveo_allowed_ips
-        serveo_endpoint         = var.serveo_endpoint
+        ct_vmid                = var.ct_vmid
+        serveo_address         = var.serveo_address
+        serveo_peer_public_key = var.serveo_peer_public_key
+        serveo_allowed_ips     = var.serveo_allowed_ips
+        serveo_endpoint        = var.serveo_endpoint
       }
     )
     destination = "/etc/wireguard/serveo.conf"
