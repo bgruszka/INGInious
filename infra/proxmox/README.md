@@ -78,6 +78,30 @@ Docker na CT (kontener gradingowy, sshd, hasło autofill z query stringa)
   `docker-compose.yml` + `deploy/Caddyfile.local` +
   `configuration.deploy.yaml` (`webterm: http://localhost:9000/webterm`).
 
+## Interaktywne sesje studentów (ssh_student)
+
+Agent startuje z `--ssh`, więc zadania mogą dawać uczniom **terminal w
+przeglądarce** w ich własnym kontenerze (sprawdzone e2e na tutorialowym
+zadaniu 13: submit → okienko SSH z iframe webtermu → `rm delete_me.txt` +
+`exit` → grading po sesji → 100%). Przepis na takie zadanie:
+
+- typ środowiska zadania: **docker-ssh** („Standard container + SSH") —
+  w task.yaml `environment_type: docker-ssh`; bez `--ssh` ten typ w ogóle
+  nie istnieje, a agent odrzuci ssh komunikatem „ssh for student requires to
+  allow ssh and internet access…",
+- `environment_parameters.network_grading: 'on'` (wymóg mechanizmu — sesja
+  ssh_student działa tylko przy dostępie do internetu z kontenera),
+- skrypt `run` wywołuje `ssh_student` (opcjonalnie `--setup-script` /
+  `--teardown-script`; zmiany plików w `/task/student` wracają do kontenera
+  gradingowego po wyjściu z sesji; `hard_time` limituje czas sesji).
+
+Uwaga bezpieczeństwa: konteny ssh_student mają **dostęp do internetu** i
+wychodzą przez mostek dockerowy na CT — ciekawski uczeń może dosięgnąć LAN-u
+domowego (192.168.68.0/22). Zanim takie zadania trafią do kursów otwartych
+dla uczniów, dodać na CT regułę firewalla blokującą ruch kontenerów do
+prywatnych zakresów (poza DNS/DHCP). Tutorial `[TUTO]` jest obecnie ukryty
+dla studentów (`accessible`), więc task 13 nie jest im widoczny.
+
 ## Wymagania (one-time)
 
 1. **Proxmox API token** — ten sam co w homelab/czytojebnie.
