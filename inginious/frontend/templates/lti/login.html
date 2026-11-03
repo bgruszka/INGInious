@@ -8,7 +8,7 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="media ">
-        <img class="align-self-center mr-3" src="{{ url_for('static', filename='images/header.png') }}" alt="INGInious">
+        <img class="align-self-center mr-3" src="{{ url_for('static', filename='images/header.png', version=pkg_version) }}" alt="dinocoders">
         <div class="media-body">
             <h2 class="mt-0"> {{ _('Hello!') }}</h2>
             <h3>{{ _('Welcome on the INGInious platform.') }}</h3>

@@ -335,7 +335,7 @@ body {
 }
 #inginious-logo #inginious-logo-text {
   display: inline-block;
-  width: 200px;
+  width: auto;
   font-family: 'Yanone Kaffeesatz', sans-serif;
   font-weight: 300;
   font-size: 35px;
@@ -343,6 +343,14 @@ body {
   padding: 0;
   margin: 0;
   color: white;
+}
+#inginious-logo #inginious-logo-text img {
+  height: 38px;
+  margin: 6px 12px;
+  background: #fff;
+  border-radius: 3px;
+  padding: 3px 10px;
+  vertical-align: middle;
 }
 #footer {
   font-size: 12px;
