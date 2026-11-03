@@ -1,0 +1,16 @@
+{
+  "name": "inginious-webterm",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Web terminal for INGInious SSH remote debug (vendored from github.com/INGInious/xterm, patched for modern deps).",
+  "dependencies": {
+    "xterm": "1.0.0",
+    "node-pty": "1.0.0",
+    "express": "4.21.2",
+    "express-ws": "5.0.2",
+    "minimist": "1.2.8"
+  },
+  "scripts": {
+    "start": "node app.js"
+  }
+}

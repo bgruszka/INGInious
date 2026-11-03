@@ -82,6 +82,12 @@ services:
         condition: service_completed_successfully
     environment:
       BACKEND: "tcp://backend:2001"
+    # SSH remote debug must advertise a hostname reachable from the webterm
+    # container (host-gateway -> published docker ports on the CT), not the
+    # auto-guessed public IP (CGNAT - useless for inbound connections).
+    # $$ keeps PYTHON_VERSION/BACKEND for the image shell; ${debug_host} is
+    # rendered by terraform.
+    command: sh -c "python$$PYTHON_VERSION -m inginious.scripts.agent_docker $$BACKEND --tmpdir=/tmp/agent_data/ --debug-host ${debug_host}"
     security_opt:
       - "label=disable"
     volumes:
@@ -90,6 +96,24 @@ services:
       - /opt/kursy/tasks:/inginious/tasks
       # See https://github.com/INGInious/INGInious/issues/799
       - /tmp/agent_data:/tmp/agent_data
+    networks:
+      - inginious
+
+  # Web terminal for SSH remote debug: students/teacher reach the grading
+  # container's sshd through the browser (served by caddy under /webterm,
+  # websocket on /bash). The raw ssh command shown in the UI is not usable
+  # from outside - the node is behind CGNAT and serveo forwards a single
+  # HTTP port, so the browser terminal is the only external debug path.
+  # The whitelist must match the agent's --debug-host/--debug-ports.
+  webterm:
+    image: ${ghcr_registry}/inginious/core-webterm:${image_tag}
+    restart: unless-stopped
+    depends_on:
+      - agent-docker
+    environment:
+      WEBTERM_ALLOWED: "${debug_host}:64120-64130"
+    extra_hosts:
+      - "${debug_host}:host-gateway"
     networks:
       - inginious
 

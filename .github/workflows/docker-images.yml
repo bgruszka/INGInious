@@ -37,6 +37,8 @@ jobs:
           - { image: core-agent_docker, context: .,                    dockerfile: deploy/Containerfile, target: agent_docker, cache: core }
           - { image: core-agent_mcq,    context: .,                    dockerfile: deploy/Containerfile, target: agent_mcq,    cache: core }
           - { image: core-webdav,       context: .,                    dockerfile: deploy/Containerfile, target: webdav,       cache: core }
+          # Web terminal for SSH remote debug; standalone Node image, no core stage.
+          - { image: core-webterm,      context: .,                    dockerfile: deploy/Containerfile, target: webterm,      cache: webterm }
           # Grading environments; default + python3 share env-base layers.
           # dockerfile path is resolved against the workspace root, not the context.
           - { image: env-base,          context: base-containers/base, dockerfile: base-containers/base/Dockerfile, target: env-base,    cache: env }

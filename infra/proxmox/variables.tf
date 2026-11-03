@@ -169,6 +169,13 @@ variable "web_bind_port" {
   default     = 8080
 }
 
+# --- SSH remote debug ----------------------------------------------------------
+variable "agent_debug_host" {
+  description = "Hostname advertised by the agent for SSH remote debug and whitelisted in webterm. Must resolve inside the webterm container (extra_hosts host-gateway) to the docker-published debug ports."
+  type        = string
+  default     = "host.docker.internal"
+}
+
 # --- Cloudflare ---------------------------------------------------------------
 variable "cloudflare_tunnel_token" {
   description = "Token of the Cloudflare tunnel (from `cloudflared service install`). Empty = tunnel service not installed."

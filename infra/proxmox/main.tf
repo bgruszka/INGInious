@@ -117,6 +117,7 @@ resource "null_resource" "bootstrap" {
         ghcr_registry = var.ghcr_registry
         image_tag     = var.image_tag
         web_bind_port = var.web_bind_port
+        debug_host    = var.agent_debug_host
       }
     )
     destination = "/opt/kursy/docker-compose.yml"

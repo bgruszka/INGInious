@@ -1,0 +1,31 @@
+# Local laptop entry point: plain HTTP on 9000 (no certificate warnings).
+# Keep the stock HTTPS sites as well; they live in the container's /etc/caddy/Caddyfile.
+http://localhost:9000 {
+	# SSH remote debug web terminal (webterm service); same routes as the
+	# production Caddyfile. /webterm maps to the xterm index page (query
+	# string with host/port/password is preserved), /bash is its websocket.
+	@webterm path /webterm /bash /main.js /style.css /src/* /addons/*
+	handle @webterm {
+		@webtermroot path /webterm
+		rewrite @webtermroot /
+		reverse_proxy webterm:3000
+	}
+	reverse_proxy frontend:8000
+	handle /dav/* {
+		reverse_proxy webdav:8000
+	}
+}
+
+inginious.local localhost {
+	header -Server
+	@webterm path /webterm /bash /main.js /style.css /src/* /addons/*
+	handle @webterm {
+		@webtermroot path /webterm
+		rewrite @webtermroot /
+		reverse_proxy webterm:3000
+	}
+	reverse_proxy frontend:8000
+	handle /dav/* {
+		reverse_proxy webdav:8000
+	}
+}

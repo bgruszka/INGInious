@@ -5,6 +5,17 @@
 	@notsecure not header X-Forwarded-Proto https
 	redir @notsecure https://{host}{uri} 308
 	header -Server
+	# SSH remote debug web terminal (INGInious webterm). /webterm serves the
+	# terminal page (xterm serves it at /; the query string with
+	# host/port/password is preserved by the rewrite); /bash is its websocket
+	# endpoint and the rest are the xterm.js static assets. These paths are
+	# unused by the frontend, so they are safe to dedicate to webterm.
+	@webterm path /webterm /bash /main.js /style.css /src/* /addons/*
+	handle @webterm {
+		@webtermroot path /webterm
+		rewrite @webtermroot /
+		reverse_proxy webterm:3000
+	}
 	reverse_proxy frontend:8000
 	handle /dav/* {
 		reverse_proxy webdav:8000

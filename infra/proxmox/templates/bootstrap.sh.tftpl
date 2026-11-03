@@ -49,10 +49,11 @@ if [ -f /opt/kursy/.data-loaded ]; then
   log "starting stack"
   docker compose up -d --remove-orphans
 
-  # configuration.yaml is a bind mount: compose does not recreate the containers
-  # when only the file content changes, so restart the services that read it.
+  # configuration.yaml and Caddyfile are bind mounts: compose does not
+  # recreate the containers when only the file content changes, so restart
+  # the services that read them.
   log "restarting config-consuming services"
-  docker compose restart frontend webdav
+  docker compose restart frontend webdav caddy
 
   # --- Image retention --------------------------------------------------------
   # Every redeploy pulls a new main-<sha> set; without this the old tags pile
@@ -61,6 +62,18 @@ if [ -f /opt/kursy/.data-loaded ]; then
   # (pre-data-migration applies). In-use images are always skipped by prune.
   log "pruning unused images"
   docker image prune -a -f >/dev/null
+
+  # --- Agent image cache ------------------------------------------------------
+  # The agents snapshot grading-image IDs (discovery by label) at startup.
+  # If a redeploy pulls new env-* images while old ones are still on disk,
+  # discovery can keep the OLD id and the prune above then deletes it - every
+  # docker-graded submission then dies with "Cannot create container"
+  # (404 No such image). Restart the grading chain so agents re-discover
+  # against the surviving images (safe here: no jobs are in flight).
+  log "refreshing agent image cache"
+  docker compose restart backend
+  sleep 5
+  docker compose restart agent-docker agent-mcq frontend webdav
 else
   log "data not migrated yet - skipping stack start and prune (see README.md)"
 fi

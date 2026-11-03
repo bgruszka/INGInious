@@ -86,6 +86,32 @@ RUN --mount=source=.git,target=.git,type=bind \
 
 CMD ["sh", "-c", "python${PYTHON_VERSION} -m inginious.scripts.agent_docker ${BACKEND} --tmpdir=/tmp/agent_data/"]
 
+###########
+# WEBTERM
+###########
+
+# Web terminal for SSH remote debug (webterm config key in configuration.yaml).
+# Vendored app in deploy/webterm/ (upstream INGInious/xterm + node-pty).
+# node-pty compiles a native module: build tools are installed for the npm
+# install and removed afterwards to keep the layer small. openssh-clients is
+# the runtime dependency: the app pty-spawns `ssh` per debug session.
+FROM rockylinux/rockylinux:10 AS webterm
+
+RUN dnf update -y && dnf install -y nodejs npm openssh-clients gcc-c++ make python3 \
+    && dnf clean all
+
+WORKDIR /webterm
+COPY deploy/webterm/package.json deploy/webterm/app.js deploy/webterm/index.html \
+     deploy/webterm/main.js deploy/webterm/style.css ./
+RUN npm install --omit=dev --no-cache \
+    && dnf remove -y gcc-c++ make && dnf clean all
+# (python3 stays: dnf depends on it, removing it breaks the package manager)
+
+# WEBTERM_ALLOWED must match the agent --debug-host/--debug-ports, e.g.
+# "host.docker.internal:64120-64130" (set by the compose files). Single $:
+# exec-form CMD is not compose-interpolated.
+CMD ["sh", "-c", "node app.js 0.0.0.0 3000 \"$WEBTERM_ALLOWED\""]
+
 ########
 # WEBDAV
 ########

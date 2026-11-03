@@ -23,6 +23,7 @@ LXC Debian 12 (unprivileged, nesting) na pve / local-lvm / vmbr0 / DHCP
     agent-mcq     grading quizów
     frontend  webapp
     webdav    /dav/*
+    webterm   web terminal SSH debug (caddy: /webterm + /bash websocket)
     caddy     plain HTTP na :8080 (serveo przekazuje tutaj przez WG)
   wg-quick@serveo (wzorzec: minecraft.dinocoders.pl)
 ```
@@ -40,6 +41,42 @@ do `ghcr.io/bgruszka/inginious/*` (tagi `latest` + `main-<sha>`).
   muszą być identyczne jak na laptopie, żeby sesje i tokeny API przetrwały
   migrację.
 - Node PVE ma mało RAM (~7 GB, 10+ gości) — CT ma 2 GB RAM + 2 GB swap.
+- **Web terminal SSH debug** (patrz niżej) — działa na zewnątrz przez tunel;
+  surowe `ssh` z okienka debug nie działa z internetu (CGNAT + serveo bez
+  forwardu zakresu portów).
+
+## SSH remote debug (web terminal)
+
+Przycisk „Start remote SSH console" (tylko admini) uruchamia kontener
+gradingowy z sshd na losowym porcie 64120-64130 na hoście Dockera (CT). INGInious
+pokazuje okienko z poleceniem `ssh worker@<debug-host> -p <port>` — **to
+polecenie z zewnątrz nie zadziała**: agent za CGNAT-em blueconnect, a serveo
+forwarduje przez WireGuard wyłącznie HTTP na port 8080 (pojedynczy port na
+rejestrację hosta w dashboardzie, bez zakresów). Zamiast tego frontend otwiera
+**terminal w przeglądarce** (config `webterm: https://kursy.dinocoders.pl/webterm`):
+
+```
+przeglądarka ──https──> serveo ──WG──> caddy:8080
+                                        ├─ /webterm, /bash (websocket),
+                                        │  /main.js, /style.css,
+                                        │  /src/*, /addons/*  → webterm:3000
+                                        └─ reszta             → frontend:8000
+webterm ──ssh worker@host.docker.internal:<port>──> port opublikowany przez
+Docker na CT (kontener gradingowy, sshd, hasło autofill z query stringa)
+```
+
+- `deploy/webterm/` - vendored [INGInious/xterm](https://github.com/INGInious/xterm)
+  spatchowany pod współczesne zależności (`node-pty` zamiast martwego `pty.js`,
+  express-ws 5); obraz `core-webterm` buduje workflow (target `webterm` w
+  `deploy/Containerfile`, wymaga `openssh-clients` - aplikacja odpala `ssh`).
+- Agent musi reklamować host osiągalny **z kontenera webterm**: 
+  `--debug-host host.docker.internal` (tfvars `agent_debug_host`) +
+  `extra_hosts: host-gateway` w webtermie. Whitelista webtera
+  (`WEBTERM_ALLOWED`) musi pasować do `--debug-host`/`--debug-ports` agenta —
+  inaczej `/bash` odpowie „Host not allowed".
+- Test lokalny (laptop, stack na :9000): wszystko identycznie skonfigurowane w
+  `docker-compose.yml` + `deploy/Caddyfile.local` +
+  `configuration.deploy.yaml` (`webterm: http://localhost:9000/webterm`).
 
 ## Wymagania (one-time)
 
@@ -133,6 +170,11 @@ make proxmox-status          # docker compose ps + stan tunelu
 make proxmox-logs            # logi aplikacji
 ssh root@$(cd infra/proxmox && terraform output -raw ct_ip)
 curl http://$(cd infra/proxmox && terraform output -raw ct_ip):8080  # (LAN; port jest na 127.0.0.1 CT)
+
+# web terminal SSH debug: usługa + trasa caddy (smoke test z wnętrza CT)
+ssh root@$(cd infra/proxmox && terraform output -raw ct_ip) '
+  cd /opt/kursy && docker compose ps webterm
+  curl -fsS -o /dev/null -w "%{http_code}\n" http://localhost:8080/webterm'
 ```
 
 Uwaga: caddy binduje się na `127.0.0.1:8080` wewnątrz CT — z laptopa smoke
@@ -141,6 +183,13 @@ http://localhost:8080.
 
 ## Troubleshooting
 
+- **„Cannot create container" przy każdej submisji (w logach agenta 404 "No
+  such image: sha256:…")** — wyścig przy redeployu: agent snapshotuje ID obrazów
+  gradingowych przy starcie; jeśli nowy pull zszedł, gdy na dysku były jeszcze
+  stare env-*, discovery mógł zapamiętać stare ID, po czym prune je skasował.
+  Naprawa jednorazowa: `docker compose restart backend agent-docker agent-mcq
+  frontend` (agent rediscoveruje). Trwała: bootstrap od teraz restartuje grading
+  chain po prune.
 - **Thin pool `local-lvm` na nodzie jest mały (~66 GB) i współdzielony z 10+
   gośćmi** — obrazy INGInious zajmują ~5-6 GB realnego miejsca. Bootstrap
   capuje logi kontenerów (daemon.json) i prunuje stare obrazy; nie podbijaj
