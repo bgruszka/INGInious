@@ -100,8 +100,9 @@ services:
       BACKEND: "tcp://backend:2001"
     # SSH remote debug must advertise a hostname reachable from the webterm
     # container (host-gateway -> published docker ports on this host), not the
-    # auto-guessed public IP. $$ keeps PYTHON_VERSION/BACKEND for the image shell.
-    command: sh -c "python$$PYTHON_VERSION -m inginious.scripts.agent_docker $$BACKEND --tmpdir=/tmp/agent_data/ --debug-host host.docker.internal"
+    # auto-guessed public IP. --ssh registers the docker-ssh envtype for
+    # ssh_student tasks. $$ keeps PYTHON_VERSION/BACKEND for the image shell.
+    command: sh -c "python$$PYTHON_VERSION -m inginious.scripts.agent_docker $$BACKEND --tmpdir=/tmp/agent_data/ --debug-host host.docker.internal --ssh"
     security_opt:
       - "label=disable"
     volumes:
